@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import type { HTMLAttributes, ReactNode } from "react";
+import type { FormEvent, HTMLAttributes, ReactNode } from "react";
 import { Compass, Film, Mountain } from "lucide-react";
+
+const FORMSPREE_ENDPOINT = import.meta.env.VITE_FORMSPREE_ENDPOINT;
 
 type YouTubeVideo = {
   id: string;
@@ -91,6 +93,99 @@ function Thumbnail({ src, alt }: { src: string; alt: string }) {
   }
 
   return <img src={src} alt={alt} loading="lazy" onError={() => setFailed(true)} />;
+}
+
+type FormStatus = "idle" | "submitting" | "success" | "error";
+
+function ContactForm() {
+  const [status, setStatus] = useState<FormStatus>("idle");
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (!FORMSPREE_ENDPOINT) {
+      console.error("VITE_FORMSPREE_ENDPOINT is not configured.");
+      setStatus("error");
+      return;
+    }
+
+    const form = event.currentTarget;
+    setStatus("submitting");
+
+    try {
+      const response = await fetch(FORMSPREE_ENDPOINT, {
+        method: "POST",
+        headers: { Accept: "application/json" },
+        body: new FormData(form),
+      });
+
+      if (!response.ok) throw new Error("Form submission failed");
+
+      setStatus("success");
+      form.reset();
+    } catch (error) {
+      console.error("Could not send message:", error);
+      setStatus("error");
+    }
+  };
+
+  if (status === "success") {
+    return (
+      <p className="form-success">
+        Thanks — your message is on its way. I'll get back to you soon.
+      </p>
+    );
+  }
+
+  return (
+    <form className="contact-form" onSubmit={handleSubmit}>
+      {/* Honeypot field: hidden from real visitors, filled in by spam bots. */}
+      <input
+        type="text"
+        name="_gotcha"
+        className="hp-field"
+        tabIndex={-1}
+        autoComplete="off"
+      />
+
+      <div className="form-field">
+        <label htmlFor="contact-email">YOUR EMAIL</label>
+        <input
+          id="contact-email"
+          type="email"
+          name="email"
+          required
+          placeholder="you@example.com"
+        />
+      </div>
+
+      <div className="form-field">
+        <label htmlFor="contact-message">MESSAGE</label>
+        <textarea
+          id="contact-message"
+          name="message"
+          required
+          rows={5}
+          placeholder="Tell me about your idea, story or trip..."
+        />
+      </div>
+
+      <button
+        type="submit"
+        className="button button-primary"
+        disabled={status === "submitting"}
+      >
+        {status === "submitting" ? "SENDING..." : "SEND MESSAGE"}
+      </button>
+
+      {status === "error" && (
+        <p className="form-error">
+          Something went wrong sending that. Please try again, or reach out
+          on Instagram instead.
+        </p>
+      )}
+    </form>
+  );
 }
 
 function SkeletonCard() {
@@ -486,12 +581,7 @@ function App() {
             For collaborations, travel ideas or just to say hello.
           </p>
 
-          <a
-            href="mailto:sriharsha1.kb@gmail.com"
-            className="button button-primary"
-          >
-            GET IN TOUCH
-          </a>
+          <ContactForm />
         </Reveal>
 
       </section>
