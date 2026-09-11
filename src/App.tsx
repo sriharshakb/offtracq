@@ -29,7 +29,7 @@ const PILLARS = [
     icon: Compass,
     title: "CULTURE & STORIES",
     description:
-      "Native American history, spiritual towns and the strange, obsessive things one person can build.",
+      "Tribal cultures, spiritual towns and the strange, obsessive things one person can build.",
   },
   {
     icon: Film,
