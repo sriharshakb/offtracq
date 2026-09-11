@@ -14,7 +14,7 @@ npm run dev
 
 `YOUTUBE_API_KEY` needs the **YouTube Data API v3** enabled in Google Cloud Console. Restrict the key (API restrictions + HTTP referrer/IP restrictions) — never commit `.env`.
 
-The contact form posts to [Formspree](https://formspree.io) so messages land in an inbox without ever exposing that address in the site. Create a form there, set `VITE_FORMSPREE_ENDPOINT` to its endpoint URL.
+The contact form posts to [Web3Forms](https://web3forms.com) so messages land in an inbox without ever exposing that address in the site. Create an access key there, set `VITE_WEB3FORMS_ACCESS_KEY` to it.
 
 ## Build
 
@@ -24,4 +24,4 @@ npm run build   # fetches latest videos, then builds to dist/
 
 ## Deployment
 
-Pushing to `main` triggers [.github/workflows/deploy.yml](.github/workflows/deploy.yml), which builds the site and publishes it to GitHub Pages at the custom domain `offtracq.com`. It also re-runs on a schedule so the video list stays fresh without a code change. The workflow needs `YOUTUBE_API_KEY`, `YOUTUBE_CHANNEL_ID` and `FORMSPREE_ENDPOINT` set as repository secrets (Settings → Secrets and variables → Actions).
+Pushing to `main` triggers [.github/workflows/deploy.yml](.github/workflows/deploy.yml), which builds the site and publishes it to GitHub Pages at the custom domain `offtracq.com`. It also re-runs on a schedule so the video list stays fresh without a code change. The workflow needs `YOUTUBE_API_KEY`, `YOUTUBE_CHANNEL_ID` and `WEB3FORMS_ACCESS_KEY` set as repository secrets (Settings → Secrets and variables → Actions).

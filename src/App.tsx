@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import type { FormEvent, HTMLAttributes, ReactNode } from "react";
 import { Compass, Film, Mountain } from "lucide-react";
 
-const FORMSPREE_ENDPOINT = import.meta.env.VITE_FORMSPREE_ENDPOINT;
+const WEB3FORMS_ACCESS_KEY = import.meta.env.VITE_WEB3FORMS_ACCESS_KEY;
+const WEB3FORMS_ENDPOINT = "https://api.web3forms.com/submit";
 
 type YouTubeVideo = {
   id: string;
@@ -103,8 +104,8 @@ function ContactForm() {
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    if (!FORMSPREE_ENDPOINT) {
-      console.error("VITE_FORMSPREE_ENDPOINT is not configured.");
+    if (!WEB3FORMS_ACCESS_KEY) {
+      console.error("VITE_WEB3FORMS_ACCESS_KEY is not configured.");
       setStatus("error");
       return;
     }
@@ -113,13 +114,14 @@ function ContactForm() {
     setStatus("submitting");
 
     try {
-      const response = await fetch(FORMSPREE_ENDPOINT, {
+      const response = await fetch(WEB3FORMS_ENDPOINT, {
         method: "POST",
         headers: { Accept: "application/json" },
         body: new FormData(form),
       });
 
-      if (!response.ok) throw new Error("Form submission failed");
+      const result = await response.json();
+      if (!result.success) throw new Error(result.message || "Form submission failed");
 
       setStatus("success");
       form.reset();
@@ -139,10 +141,13 @@ function ContactForm() {
 
   return (
     <form className="contact-form" onSubmit={handleSubmit}>
+      <input type="hidden" name="access_key" value={WEB3FORMS_ACCESS_KEY} />
+      <input type="hidden" name="subject" value="New message from offtracq.com" />
+
       {/* Honeypot field: hidden from real visitors, filled in by spam bots. */}
       <input
-        type="text"
-        name="_gotcha"
+        type="checkbox"
+        name="botcheck"
         className="hp-field"
         tabIndex={-1}
         autoComplete="off"
