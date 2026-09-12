@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import type { FormEvent, HTMLAttributes, ReactNode } from "react";
-import { motion, useScroll, useTransform } from "framer-motion";
-import { Compass, Film, Mountain } from "lucide-react";
+import { motion, useReducedMotion, useScroll, useTransform } from "framer-motion";
+import type { Variants } from "framer-motion";
+import { Compass, Film, Mountain, Play } from "lucide-react";
 import type { YouTubeData, YouTubeVideo } from "./types";
 import { Thumbnail } from "./Thumbnail";
 import { MagneticLink } from "./Magnetic";
@@ -32,6 +33,16 @@ const PILLARS = [
       "Every trip is shot and cut like a short film — not a vlog, a story worth sitting through.",
   },
 ];
+
+const heroLineVariants: Variants = {
+  hidden: { opacity: 0, y: 40 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.8, ease: [0.16, 1, 0.3, 1] } },
+};
+
+const heroContainerVariants: Variants = {
+  hidden: {},
+  visible: { transition: { staggerChildren: 0.12, delayChildren: 0.15 } },
+};
 
 // Reveals its children with a fade/slide-up transition the first time
 // they scroll into view. Kept as a plain div wrapper so it can drop into
@@ -191,7 +202,8 @@ function App() {
     target: heroRef,
     offset: ["start start", "end start"],
   });
-  const heroY = useTransform(heroProgress, [0, 1], ["0%", "18%"]);
+  const reduceMotion = useReducedMotion();
+  const heroY = useTransform(heroProgress, [0, 1], reduceMotion ? ["0%", "0%"] : ["0%", "18%"]);
 
   // On a pure client-rendered page, the browser's one-shot "scroll to
   // #hash" attempt fires before React has rendered anything, so it
@@ -239,25 +251,35 @@ function App() {
       <section className="hero" ref={heroRef}>
         <motion.div className="hero-bg" style={{ y: heroY }} />
         <div className="hero-overlay" />
-        <div className="hero-grain" />
 
-        <div className="hero-content">
-          <p className="hero-kicker">GO BEYOND THE OBVIOUS</p>
+        <motion.div
+          className="hero-content"
+          variants={heroContainerVariants}
+          initial={reduceMotion ? undefined : "hidden"}
+          animate="visible"
+        >
+          <motion.p className="hero-kicker" variants={heroLineVariants}>
+            GO BEYOND THE OBVIOUS
+          </motion.p>
 
           <h1>
-            TRAVEL.
-            <br />
-            ADVENTURE.
-            <br />
-            STORIES.
+            <motion.span style={{ display: "block" }} variants={heroLineVariants}>
+              TRAVEL.
+            </motion.span>
+            <motion.span style={{ display: "block" }} variants={heroLineVariants}>
+              ADVENTURE.
+            </motion.span>
+            <motion.span style={{ display: "block" }} variants={heroLineVariants}>
+              STORIES.
+            </motion.span>
           </h1>
 
-          <p className="hero-description">
+          <motion.p className="hero-description" variants={heroLineVariants}>
             Exploring places, people and stories that are worth going
             off the beaten path for.
-          </p>
+          </motion.p>
 
-          <div className="hero-buttons">
+          <motion.div className="hero-buttons" variants={heroLineVariants}>
             <MagneticLink
               href="https://www.youtube.com/@Offtracq"
               target="_blank"
@@ -270,8 +292,8 @@ function App() {
             <MagneticLink href="#videos" className="button button-outline">
               EXPLORE
             </MagneticLink>
-          </div>
-        </div>
+          </motion.div>
+        </motion.div>
 
         <div className="hero-scroll">
           SCROLL TO EXPLORE
@@ -352,7 +374,7 @@ function App() {
                   <Thumbnail src={featuredVideo.thumbnail} alt={featuredVideo.title} />
 
                   <div className="featured-play">
-                    ▶
+                    <Play size={20} fill="currentColor" strokeWidth={0} />
                   </div>
                 </div>
 
@@ -399,7 +421,7 @@ function App() {
                       </div>
 
                       <div className="card-play">
-                        ▶
+                        <Play size={15} fill="currentColor" strokeWidth={0} />
                       </div>
                     </div>
 

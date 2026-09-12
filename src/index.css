@@ -1,5 +1,10 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@500;600;700;800&display=swap');
 
+:root {
+  --accent: #ffd479;
+  --accent-dim: rgba(255, 212, 121, 0.18);
+}
+
 * {
   box-sizing: border-box;
   margin: 0;
@@ -42,6 +47,27 @@ button:focus-visible {
   width: 100%;
   overflow: hidden;
 }
+
+/* =========================
+   FILM GRAIN (site-wide)
+========================= */
+
+.site-grain {
+  position: fixed;
+  inset: 0;
+  z-index: 999;
+  opacity: 0.045;
+  mix-blend-mode: overlay;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+@media (max-width: 600px) {
+  .site-grain {
+    display: none;
+  }
+}
+
 
 /* =========================
    SCROLL REVEAL
@@ -118,16 +144,35 @@ button:focus-visible {
 }
 
 .nav-links a {
+  position: relative;
   font-size: 12px;
   font-weight: 600;
   letter-spacing: 1.5px;
   text-transform: uppercase;
   opacity: 0.85;
-  transition: opacity 0.25s ease;
+  transition: opacity 0.25s ease, color 0.25s ease;
+}
+
+.nav-links a::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -6px;
+  height: 1px;
+  background: var(--accent);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .nav-links a:hover {
   opacity: 1;
+  color: var(--accent);
+}
+
+.nav-links a:hover::after {
+  transform: scaleX(1);
 }
 
 /* =========================
@@ -168,15 +213,6 @@ button:focus-visible {
     );
 }
 
-.hero-grain {
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-  opacity: 0.05;
-  pointer-events: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-}
-
 .hero-content {
   position: relative;
   z-index: 2;
@@ -188,12 +224,25 @@ button:focus-visible {
 
 .hero-kicker,
 .section-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 3px;
   text-transform: uppercase;
   margin-bottom: 18px;
   opacity: 0.7;
+}
+
+.hero-kicker::before,
+.section-kicker::before {
+  content: "";
+  width: 22px;
+  height: 1px;
+  background: var(--accent);
+  opacity: 0.9;
+  flex-shrink: 0;
 }
 
 .hero h1 {
@@ -349,11 +398,18 @@ button:focus-visible {
 }
 
 .view-all {
+  position: relative;
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 1.5px;
   padding-bottom: 6px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.5);
+  transition: color 0.25s ease, border-color 0.25s ease;
+}
+
+.view-all:hover {
+  color: var(--accent);
+  border-color: var(--accent);
 }
 
 /* =========================
@@ -383,11 +439,13 @@ button:focus-visible {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  transition: transform 0.5s ease;
+  filter: brightness(0.9) saturate(0.95);
+  transition: transform 0.5s ease, filter 0.5s ease;
 }
 
 .featured-video:hover .featured-image img {
   transform: scale(1.03);
+  filter: brightness(1) saturate(1.05);
 }
 
 .featured-play,
@@ -404,8 +462,18 @@ button:focus-visible {
   justify-content: center;
   background: rgba(255, 255, 255, 0.95);
   color: #111;
-  font-size: 16px;
-  padding-left: 3px;
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), background 0.25s ease,
+    opacity 0.25s ease;
+}
+
+.featured-video:hover .featured-play {
+  background: var(--accent);
+  transform: translate(-50%, -50%) scale(1.08);
+}
+
+.featured-play svg,
+.card-play svg {
+  margin-left: 2px;
 }
 
 .featured-info {
@@ -440,11 +508,36 @@ button:focus-visible {
 }
 
 .watch-link {
+  position: relative;
   display: inline-block;
   margin-top: 25px;
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 1.5px;
+  transition: color 0.25s ease;
+}
+
+.watch-link::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: -4px;
+  width: 100%;
+  height: 1px;
+  background: currentColor;
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+a:hover .watch-link,
+.watch-link:hover {
+  color: var(--accent);
+}
+
+a:hover .watch-link::after,
+.watch-link:hover::after {
+  transform: scaleX(1);
 }
 
 /* =========================
@@ -472,11 +565,13 @@ button:focus-visible {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  transition: transform 0.45s ease;
+  filter: brightness(0.9) saturate(0.95);
+  transition: transform 0.45s ease, filter 0.45s ease;
 }
 
 .video-card:hover .video-image img {
   transform: scale(1.04);
+  filter: brightness(1) saturate(1.05);
 }
 
 .video-number {
@@ -493,13 +588,12 @@ button:focus-visible {
 .card-play {
   width: 42px;
   height: 42px;
-  font-size: 11px;
   opacity: 0;
-  transition: opacity 0.25s ease;
 }
 
 .video-card:hover .card-play {
   opacity: 1;
+  background: var(--accent);
 }
 
 .video-info {
@@ -646,11 +740,13 @@ button:focus-visible {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  transition: transform 0.5s ease;
+  filter: brightness(0.9) saturate(0.95);
+  transition: transform 0.5s ease, filter 0.5s ease;
 }
 
 .short-card:hover img {
   transform: scale(1.04);
+  filter: brightness(1) saturate(1.05);
 }
 
 .short-overlay {
@@ -1262,6 +1358,27 @@ button:focus-visible {
   cursor: grab;
 }
 
+.world-globe-toggle {
+  position: absolute;
+  right: 4%;
+  bottom: 4%;
+  z-index: 1;
+  padding: 10px 16px;
+  background: rgba(16, 16, 16, 0.7);
+  border: 1px solid #2a2a2a;
+  color: #f5f5f5;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  cursor: pointer;
+  transition: background 0.25s ease, border-color 0.25s ease;
+}
+
+.world-globe-toggle:hover {
+  background: rgba(16, 16, 16, 0.9);
+  border-color: #f5f5f5;
+}
+
 .world-globe:active {
   cursor: grabbing;
 }
@@ -1298,6 +1415,23 @@ button:focus-visible {
   fill: none;
   stroke: rgba(245, 245, 245, 0.08);
   stroke-width: 0.5;
+}
+
+.world-marker-group {
+  cursor: pointer;
+}
+
+.world-marker-group:focus-visible {
+  outline: none;
+}
+
+.world-marker-group:focus-visible .world-marker {
+  stroke: #f5f5f5;
+  stroke-width: 3;
+}
+
+.world-marker-hit {
+  fill: transparent;
 }
 
 .world-marker {

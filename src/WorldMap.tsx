@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import type { PointerEvent as ReactPointerEvent } from "react";
+import type { KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent } from "react";
 import { geoOrthographic, geoPath, geoGraticule10 } from "d3-geo";
 import { feature } from "topojson-client";
 import type { GeoPermissibleObjects } from "d3-geo";
@@ -80,6 +80,9 @@ type LoadedGeo = {
 
 export function WorldMap() {
   const [geo, setGeo] = useState<LoadedGeo | null>(null);
+  const [paused, setPaused] = useState(
+    () => window.matchMedia("(prefers-reduced-motion: reduce)").matches
+  );
 
   const svgWrapRef = useRef<HTMLDivElement>(null);
   const landRef = useRef<SVGPathElement>(null);
@@ -100,6 +103,11 @@ export function WorldMap() {
   const hoveredIdRef = useRef<string | null>(null);
   const lastPointRef = useRef({ x: 0, y: 0 });
   const idleSinceRef = useRef(0);
+  const pausedRef = useRef(paused);
+
+  useEffect(() => {
+    pausedRef.current = paused;
+  }, [paused]);
 
   // Built once, from local variables only (never reading another ref's
   // `.current`) — reading a ref during the render of another ref's
@@ -221,6 +229,7 @@ export function WorldMap() {
       } else if (
         !draggingRef.current &&
         !hoveredIdRef.current &&
+        !pausedRef.current &&
         now - idleSinceRef.current > 900
       ) {
         const [lambda, phi, gamma] = rotationRef.current;
@@ -289,6 +298,15 @@ export function WorldMap() {
       start: now(),
     };
     markNow(idleSinceRef);
+    // Touch has no hover — show the label on tap too, not just on hover.
+    handleMarkerEnter(place.key);
+  };
+
+  const handleMarkerKeyDown = (event: ReactKeyboardEvent<SVGGElement>, place: Place) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      handleMarkerClick(place);
+    }
   };
 
   return (
@@ -338,10 +356,20 @@ export function WorldMap() {
               ref={(el) => {
                 if (el) markerRefs.current.set(place.key, el);
               }}
+              className="world-marker-group"
+              role="button"
+              tabIndex={0}
+              aria-label={`${place.name} — ${place.role}`}
               onPointerEnter={() => handleMarkerEnter(place.key)}
               onPointerLeave={() => handleMarkerLeave(place.key)}
+              onFocus={() => handleMarkerEnter(place.key)}
+              onBlur={() => handleMarkerLeave(place.key)}
               onClick={() => handleMarkerClick(place)}
+              onKeyDown={(event) => handleMarkerKeyDown(event, place)}
             >
+              {/* Larger invisible hit area — the visible dot alone is well
+                  under the ~24px minimum touch/click target. */}
+              <circle r={13} className="world-marker-hit" />
               <circle
                 r={place.home ? 7 : 5}
                 className={`world-marker${place.home ? " world-marker-home" : ""}`}
@@ -354,6 +382,15 @@ export function WorldMap() {
             <text ref={tagRoleRef} textAnchor="middle" y={-3} className="world-marker-tag-role" />
           </g>
         </svg>
+
+        <button
+          type="button"
+          className="world-globe-toggle"
+          onClick={() => setPaused((current) => !current)}
+          aria-pressed={!paused}
+        >
+          {paused ? "PLAY" : "PAUSE"}
+        </button>
       </div>
     </section>
   );

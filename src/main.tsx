@@ -8,6 +8,7 @@ import { BlogPost } from './pages/BlogPost.tsx'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
+    <div className="site-grain" aria-hidden="true" />
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<App />} />
