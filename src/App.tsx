@@ -1,25 +1,15 @@
 import { useEffect, useRef, useState } from "react";
 import type { FormEvent, HTMLAttributes, ReactNode } from "react";
+import { motion, useScroll, useTransform } from "framer-motion";
 import { Compass, Film, Mountain } from "lucide-react";
+import type { YouTubeData, YouTubeVideo } from "./types";
+import { Thumbnail } from "./Thumbnail";
+import { Cursor } from "./Cursor";
+import { MagneticLink } from "./Magnetic";
+import { JourneyMap } from "./JourneyMap";
 
 const WEB3FORMS_ACCESS_KEY = import.meta.env.VITE_WEB3FORMS_ACCESS_KEY;
 const WEB3FORMS_ENDPOINT = "https://api.web3forms.com/submit";
-
-type YouTubeVideo = {
-  id: string;
-  title: string;
-  description: string;
-  publishedAt: string;
-  thumbnail: string;
-  url: string;
-};
-
-type YouTubeData = {
-  channelId: string;
-  updatedAt: string;
-  videos: YouTubeVideo[];
-  shorts: YouTubeVideo[];
-};
 
 const PILLARS = [
   {
@@ -80,20 +70,6 @@ function Reveal({
       {children}
     </div>
   );
-}
-
-function Thumbnail({ src, alt }: { src: string; alt: string }) {
-  const [failed, setFailed] = useState(false);
-
-  if (!src || failed) {
-    return (
-      <div className="thumb-fallback">
-        <span>OFFTRACQ</span>
-      </div>
-    );
-  }
-
-  return <img src={src} alt={alt} loading="lazy" onError={() => setFailed(true)} />;
 }
 
 type FormStatus = "idle" | "submitting" | "success" | "error";
@@ -209,6 +185,15 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
 
+  const { scrollYProgress } = useScroll();
+
+  const heroRef = useRef<HTMLElement>(null);
+  const { scrollYProgress: heroProgress } = useScroll({
+    target: heroRef,
+    offset: ["start start", "end start"],
+  });
+  const heroY = useTransform(heroProgress, [0, 1], ["0%", "18%"]);
+
   useEffect(() => {
     fetch("/youtube.json")
       .then((response) => response.json())
@@ -238,14 +223,19 @@ function App() {
   return (
     <div className="site">
 
+      <Cursor />
+
       {/* NAVIGATION */}
       <nav className="navbar">
+        <motion.div className="nav-progress" style={{ scaleX: scrollYProgress }} />
+
         <div className="nav-container">
           <a href="#" className="logo">
             OFFTRACQ
           </a>
 
           <div className="nav-links">
+            <a href="#journey">Journey</a>
             <a href="#videos">Videos</a>
             <a href="#shorts">Shorts</a>
             <a href="#about">About</a>
@@ -256,7 +246,8 @@ function App() {
 
 
       {/* HERO */}
-      <section className="hero">
+      <section className="hero" ref={heroRef}>
+        <motion.div className="hero-bg" style={{ y: heroY }} />
         <div className="hero-overlay" />
         <div className="hero-grain" />
 
@@ -277,18 +268,18 @@ function App() {
           </p>
 
           <div className="hero-buttons">
-            <a
+            <MagneticLink
               href="https://www.youtube.com/@Offtracq"
               target="_blank"
               rel="noopener noreferrer"
               className="button button-primary"
             >
               WATCH ON YOUTUBE
-            </a>
+            </MagneticLink>
 
-            <a href="#videos" className="button button-outline">
+            <MagneticLink href="#videos" className="button button-outline">
               EXPLORE
-            </a>
+            </MagneticLink>
           </div>
         </div>
 
@@ -297,6 +288,10 @@ function App() {
           <span>↓</span>
         </div>
       </section>
+
+
+      {/* JOURNEY MAP */}
+      <JourneyMap videos={videos} loading={loading} />
 
 
       {/* PILLARS */}
@@ -513,14 +508,14 @@ function App() {
             moments from the road.
           </p>
 
-          <a
+          <MagneticLink
             href="https://www.instagram.com/offtracq/"
             target="_blank"
             rel="noopener noreferrer"
             className="button button-primary"
           >
             FOLLOW ON INSTAGRAM
-          </a>
+          </MagneticLink>
 
         </Reveal>
 
