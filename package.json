@@ -12,19 +12,22 @@
   },
   "dependencies": {
     "@vitejs/plugin-react": "latest",
+    "d3-geo": "^3.1.1",
     "framer-motion": "^13.2.0",
     "lucide-react": "latest",
     "react": "latest",
     "react-dom": "latest",
-    "react-simple-maps": "^5.0.5",
+    "topojson-client": "^3.1.0",
     "typescript": "latest",
     "vite": "latest"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@types/d3-geo": "^3.1.1",
     "@types/node": "^22.20.2",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
+    "@types/topojson-client": "^3.1.5",
     "eslint": "^10.10.0",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.6",

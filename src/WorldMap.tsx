@@ -1,42 +1,63 @@
 import { useEffect, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
-import { ComposableMap, Geographies, Geography, Graticule, Marker } from "react-simple-maps";
+import { geoOrthographic, geoPath, geoGraticule10 } from "d3-geo";
+import { feature } from "topojson-client";
+import type { GeoPermissibleObjects } from "d3-geo";
 
-// Served from public/data — a copy of world-atlas's countries-110m.json.
-const GEO_URL = "/data/countries-110m.json";
+// Served from public/data — copies of world-atlas's topojson files.
+const LAND_URL = "/data/land-110m.json";
+const COUNTRIES_URL = "/data/countries-110m.json";
 
 type Place = {
+  // Unique per marker (several markers can share a countryId).
+  key: string;
   // ISO-3166 numeric country code, matching the topojson feature ids above.
-  id: string;
+  countryId: string;
   name: string;
   role: string;
   coordinates: [number, number];
+  home?: boolean;
 };
 
-const HOME_ID = "840";
-
+// A handful of pins per home country (India, USA) instead of just one,
+// plus a single pin for each one-trip destination.
 const PLACES: Place[] = [
-  { id: "840", name: "United States", role: "Home base", coordinates: [-104.9903, 39.7392] },
-  { id: "356", name: "India", role: "Where I'm from", coordinates: [77.209, 28.6139] },
-  { id: "524", name: "Nepal", role: "Everest Base Camp", coordinates: [85.324, 27.7172] },
-  { id: "064", name: "Bhutan", role: "Visited", coordinates: [89.6339, 27.4712] },
-  { id: "360", name: "Indonesia", role: "Bali", coordinates: [115.1889, -8.4095] },
+  { key: "us-denver", countryId: "840", name: "Denver, CO", role: "Home base", coordinates: [-104.9903, 39.7392], home: true },
+  { key: "us-telluride", countryId: "840", name: "Telluride, CO", role: "Via Ferrata", coordinates: [-107.8123, 37.9375] },
+  { key: "us-estes-park", countryId: "840", name: "Estes Park, CO", role: "Seven Keys Inn", coordinates: [-105.5217, 40.3772] },
+  { key: "us-havasupai", countryId: "840", name: "Havasupai, AZ", role: "Havasupai Falls", coordinates: [-112.6979, 36.2551] },
+  { key: "us-santa-fe", countryId: "840", name: "Santa Fe, NM", role: "Chimayó pilgrimage", coordinates: [-105.9378, 35.687] },
+
+  { key: "in-delhi", countryId: "356", name: "New Delhi", role: "Where I'm from", coordinates: [77.209, 28.6139] },
+  { key: "in-hyderabad", countryId: "356", name: "Hyderabad", role: "India", coordinates: [78.4867, 17.385] },
+  { key: "in-mumbai", countryId: "356", name: "Mumbai", role: "India", coordinates: [72.8777, 19.076] },
+  { key: "in-bengaluru", countryId: "356", name: "Bengaluru", role: "India", coordinates: [77.5946, 12.9716] },
+
+  { key: "nepal", countryId: "524", name: "Nepal", role: "Everest Base Camp", coordinates: [85.324, 27.7172] },
+  { key: "bhutan", countryId: "064", name: "Bhutan", role: "Visited", coordinates: [89.6339, 27.4712] },
+  { key: "indonesia", countryId: "360", name: "Indonesia", role: "Bali", coordinates: [115.1889, -8.4095] },
 ];
 
-const VISITED_IDS = new Set(PLACES.map((place) => place.id));
+const VISITED_IDS = new Set(PLACES.map((place) => place.countryId));
+const SIZE = 800;
 
 type Rotation = [number, number, number];
+
+// Plain module-level helpers (not components/hooks) so reading the clock
+// isn't flagged as an impure render — they only ever run from inside
+// event handlers, but the lint rule can't see that through an inline
+// arrow-wrapped handler.
+function now() {
+  return performance.now();
+}
+
+function markNow(ref: { current: number }) {
+  ref.current = now();
+}
 
 // Whether a [lon, lat] point sits on the hemisphere currently facing the
 // camera, given the globe's current rotation — standard great-circle
 // visibility test (angular distance from the view center under 90deg).
-// Plain module-level helper (not a component/hook) so reading the clock
-// here isn't flagged as an impure render — it only ever runs from inside
-// event handlers.
-function markNow(ref: { current: number }) {
-  ref.current = performance.now();
-}
-
 function isFacingCamera([lon, lat]: [number, number], rotation: Rotation) {
   const toRad = (deg: number) => (deg * Math.PI) / 180;
   const lon0 = toRad(-rotation[0]);
@@ -48,48 +69,156 @@ function isFacingCamera([lon, lat]: [number, number], rotation: Rotation) {
   return cosC > 0.02;
 }
 
-export function WorldMap() {
-  const [hoveredId, setHoveredId] = useState<string | null>(null);
-  const [rotation, setRotation] = useState<Rotation>([45, -22, 0]);
+type LoadedGeo = {
+  land: GeoPermissibleObjects;
+  countries: { id: string; feature: GeoPermissibleObjects }[];
+};
 
+export function WorldMap() {
+  const [geo, setGeo] = useState<LoadedGeo | null>(null);
+
+  const svgWrapRef = useRef<HTMLDivElement>(null);
+  const landRef = useRef<SVGPathElement>(null);
+  const graticuleRef = useRef<SVGPathElement>(null);
+  const countryRefs = useRef(new Map<string, SVGPathElement>());
+  const markerRefs = useRef(new Map<string, SVGGElement>());
+  const tagRef = useRef<SVGGElement>(null);
+  const tagNameRef = useRef<SVGTextElement>(null);
+  const tagRoleRef = useRef<SVGTextElement>(null);
+
+  // Mutable, imperative animation state — deliberately NOT React state, so
+  // the rotation loop never triggers a re-render. Only the initial data
+  // load goes through setState.
+  const rotationRef = useRef<Rotation>([45, -22, 0]);
+  const flyToRef = useRef<{ from: Rotation; to: Rotation; start: number } | null>(null);
   const draggingRef = useRef(false);
   const draggedRef = useRef(false);
-  const hoveredRef = useRef<string | null>(null);
+  const hoveredIdRef = useRef<string | null>(null);
   const lastPointRef = useRef({ x: 0, y: 0 });
   const idleSinceRef = useRef(0);
-  const rotationRef = useRef(rotation);
+
+  // Built once, from local variables only (never reading another ref's
+  // `.current`) — reading a ref during the render of another ref's
+  // initializer is what the render-purity lint rule objects to.
+  const geoToolsRef = useRef(
+    (() => {
+      const projection = geoOrthographic()
+        .translate([SIZE / 2, SIZE / 2])
+        .scale(SIZE / 2 - 12)
+        .clipAngle(90)
+        .precision(0.3);
+      return { projection, path: geoPath(projection), graticule: geoGraticule10() };
+    })()
+  );
 
   useEffect(() => {
-    rotationRef.current = rotation;
-  }, [rotation]);
+    let cancelled = false;
 
-  useEffect(() => {
-    hoveredRef.current = hoveredId;
-  }, [hoveredId]);
+    Promise.all([
+      fetch(LAND_URL).then((res) => res.json()),
+      fetch(COUNTRIES_URL).then((res) => res.json()),
+    ]).then(([landTopo, countriesTopo]) => {
+      if (cancelled) return;
 
+      const landObject = landTopo.objects.land;
+      const land = feature(landTopo, landObject) as unknown as GeoPermissibleObjects;
+
+      const countriesObject = countriesTopo.objects.countries;
+      const collection = feature(countriesTopo, countriesObject) as unknown as {
+        features: { id: string; type: string }[];
+      };
+
+      const countries = collection.features
+        .filter((f) => VISITED_IDS.has(f.id as string))
+        .map((f) => ({ id: f.id as string, feature: f as unknown as GeoPermissibleObjects }));
+
+      setGeo({ land, countries });
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // The main draw step: re-project every visible shape from the current
+  // rotation and paint it straight onto the DOM via refs, bypassing React
+  // entirely so a 60fps loop never triggers reconciliation.
   useEffect(() => {
+    if (!geo) return;
+
     let raf = 0;
     let last = performance.now();
+
+    const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3);
+
+    const draw = () => {
+      const { projection, path, graticule } = geoToolsRef.current;
+      const rotation = rotationRef.current;
+      projection.rotate(rotation);
+
+      if (landRef.current) landRef.current.setAttribute("d", path(geo.land) ?? "");
+      if (graticuleRef.current) {
+        graticuleRef.current.setAttribute("d", path(graticule) ?? "");
+      }
+
+      for (const { id, feature: countryFeature } of geo.countries) {
+        const el = countryRefs.current.get(id);
+        if (el) el.setAttribute("d", path(countryFeature) ?? "");
+      }
+
+      for (const place of PLACES) {
+        const el = markerRefs.current.get(place.key);
+        if (!el) continue;
+        const projected = projection(place.coordinates);
+        const visible = isFacingCamera(place.coordinates, rotation);
+        el.style.display = visible ? "" : "none";
+        if (projected) el.setAttribute("transform", `translate(${projected[0]}, ${projected[1]})`);
+      }
+
+      if (hoveredIdRef.current) {
+        const el = markerRefs.current.get(hoveredIdRef.current);
+        if (el && tagRef.current) {
+          tagRef.current.setAttribute("transform", el.getAttribute("transform") ?? "");
+        }
+      }
+    };
 
     const tick = (now: number) => {
       const dt = now - last;
       last = now;
 
-      if (!draggingRef.current && !hoveredRef.current && now - idleSinceRef.current > 900) {
+      const flight = flyToRef.current;
+      if (flight) {
+        const elapsed = now - flight.start;
+        const t = Math.min(1, elapsed / 650);
+        const eased = easeOutCubic(t);
+        rotationRef.current = [
+          flight.from[0] + (flight.to[0] - flight.from[0]) * eased,
+          flight.from[1] + (flight.to[1] - flight.from[1]) * eased,
+          0,
+        ];
+        if (t >= 1) flyToRef.current = null;
+      } else if (
+        !draggingRef.current &&
+        !hoveredIdRef.current &&
+        now - idleSinceRef.current > 900
+      ) {
         const [lambda, phi, gamma] = rotationRef.current;
-        setRotation([lambda + dt * 0.012, phi, gamma]);
+        rotationRef.current = [lambda + dt * 0.012, phi, gamma];
       }
 
+      draw();
       raf = requestAnimationFrame(tick);
     };
 
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, []);
+  }, [geo]);
 
   const handlePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
     draggingRef.current = true;
     draggedRef.current = false;
+    flyToRef.current = null;
     lastPointRef.current = { x: event.clientX, y: event.clientY };
     event.currentTarget.setPointerCapture(event.pointerId);
   };
@@ -103,7 +232,7 @@ export function WorldMap() {
 
     const [lambda, phi, gamma] = rotationRef.current;
     const nextPhi = Math.max(-85, Math.min(85, phi - dy * 0.35));
-    setRotation([lambda + dx * 0.35, nextPhi, gamma]);
+    rotationRef.current = [lambda + dx * 0.35, nextPhi, gamma];
   };
 
   const endDrag = () => {
@@ -111,10 +240,31 @@ export function WorldMap() {
     markNow(idleSinceRef);
   };
 
+  const handleMarkerEnter = (id: string) => {
+    hoveredIdRef.current = id;
+    markerRefs.current.get(id)?.classList.add("world-marker-group-hovered");
+    const place = PLACES.find((p) => p.key === id);
+    if (place && tagNameRef.current && tagRoleRef.current && tagRef.current) {
+      tagNameRef.current.textContent = place.name;
+      tagRoleRef.current.textContent = place.role;
+      tagRef.current.style.display = "";
+    }
+  };
+
+  const handleMarkerLeave = (id: string) => {
+    markerRefs.current.get(id)?.classList.remove("world-marker-group-hovered");
+    if (hoveredIdRef.current !== id) return;
+    hoveredIdRef.current = null;
+    if (tagRef.current) tagRef.current.style.display = "none";
+  };
+
   const handleMarkerClick = (place: Place) => {
-    // A click that ended a drag shouldn't also re-center the globe.
     if (draggedRef.current) return;
-    setRotation([-place.coordinates[0], -place.coordinates[1], 0]);
+    flyToRef.current = {
+      from: rotationRef.current,
+      to: [-place.coordinates[0], -place.coordinates[1], 0],
+      start: now(),
+    };
     markNow(idleSinceRef);
   };
 
@@ -136,6 +286,7 @@ export function WorldMap() {
       </div>
 
       <div
+        ref={svgWrapRef}
         className="world-globe"
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
@@ -144,57 +295,42 @@ export function WorldMap() {
       >
         <div className="world-globe-glow" />
 
-        <ComposableMap
-          projection="geoOrthographic"
-          projectionConfig={{ scale: 210, rotate: rotation }}
-          width={800}
-          height={800}
-        >
-          <Graticule stroke="rgba(245, 245, 245, 0.08)" />
+        <svg viewBox={`0 0 ${SIZE} ${SIZE}`}>
+          <path ref={landRef} className="world-country" />
+          <path ref={graticuleRef} className="world-graticule" />
 
-          <Geographies geography={GEO_URL}>
-            {({ geographies }) =>
-              geographies.map((geo) => {
-                const visited = VISITED_IDS.has(geo.id as string);
-                return (
-                  <Geography
-                    key={geo.rsmKey}
-                    geography={geo}
-                    className={`world-country${visited ? " world-country-visited" : ""}`}
-                  />
-                );
-              })
-            }
-          </Geographies>
+          {geo?.countries.map(({ id }) => (
+            <path
+              key={id}
+              ref={(el) => {
+                if (el) countryRefs.current.set(id, el);
+              }}
+              className="world-country-visited"
+            />
+          ))}
 
-          {PLACES.filter((place) => isFacingCamera(place.coordinates, rotation)).map((place) => (
-            <Marker
-              key={place.id}
-              coordinates={place.coordinates}
-              onPointerEnter={() => setHoveredId(place.id)}
-              onPointerLeave={() => setHoveredId((current) => (current === place.id ? null : current))}
+          {PLACES.map((place) => (
+            <g
+              key={place.key}
+              ref={(el) => {
+                if (el) markerRefs.current.set(place.key, el);
+              }}
+              onPointerEnter={() => handleMarkerEnter(place.key)}
+              onPointerLeave={() => handleMarkerLeave(place.key)}
               onClick={() => handleMarkerClick(place)}
             >
               <circle
-                r={place.id === HOME_ID ? 6 : 5}
-                className={`world-marker${place.id === HOME_ID ? " world-marker-home" : ""}${
-                  hoveredId === place.id ? " world-marker-active" : ""
-                }`}
+                r={place.home ? 7 : 5}
+                className={`world-marker${place.home ? " world-marker-home" : ""}`}
               />
-
-              {hoveredId === place.id && (
-                <g className="world-marker-tag" transform="translate(0, -14)">
-                  <text textAnchor="middle" y={0} className="world-marker-tag-name">
-                    {place.name}
-                  </text>
-                  <text textAnchor="middle" y={13} className="world-marker-tag-role">
-                    {place.role}
-                  </text>
-                </g>
-              )}
-            </Marker>
+            </g>
           ))}
-        </ComposableMap>
+
+          <g ref={tagRef} className="world-marker-tag" style={{ display: "none" }}>
+            <text ref={tagNameRef} textAnchor="middle" y={-16} className="world-marker-tag-name" />
+            <text ref={tagRoleRef} textAnchor="middle" y={-3} className="world-marker-tag-role" />
+          </g>
+        </svg>
       </div>
     </section>
   );
