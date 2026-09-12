@@ -6,6 +6,8 @@ import type { YouTubeData, YouTubeVideo } from "./types";
 import { Thumbnail } from "./Thumbnail";
 import { MagneticLink } from "./Magnetic";
 import { WorldMap } from "./WorldMap";
+import { SiteNav } from "./SiteNav";
+import { SiteFooter } from "./SiteFooter";
 
 const WEB3FORMS_ACCESS_KEY = import.meta.env.VITE_WEB3FORMS_ACCESS_KEY;
 const WEB3FORMS_ENDPOINT = "https://api.web3forms.com/submit";
@@ -184,14 +186,22 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
 
-  const { scrollYProgress } = useScroll();
-
   const heroRef = useRef<HTMLElement>(null);
   const { scrollYProgress: heroProgress } = useScroll({
     target: heroRef,
     offset: ["start start", "end start"],
   });
   const heroY = useTransform(heroProgress, [0, 1], ["0%", "18%"]);
+
+  // On a pure client-rendered page, the browser's one-shot "scroll to
+  // #hash" attempt fires before React has rendered anything, so it
+  // silently does nothing — do it ourselves once mounted (covers a
+  // fresh load of e.g. /#about, and landing here from another page).
+  useEffect(() => {
+    if (!window.location.hash) return;
+    const target = document.querySelector(window.location.hash);
+    target?.scrollIntoView();
+  }, []);
 
   useEffect(() => {
     fetch("/youtube.json")
@@ -222,24 +232,7 @@ function App() {
   return (
     <div className="site">
 
-      {/* NAVIGATION */}
-      <nav className="navbar">
-        <motion.div className="nav-progress" style={{ scaleX: scrollYProgress }} />
-
-        <div className="nav-container">
-          <a href="#" className="logo">
-            OFFTRACQ
-          </a>
-
-          <div className="nav-links">
-            <a href="#journey">Journey</a>
-            <a href="#videos">Videos</a>
-            <a href="#shorts">Shorts</a>
-            <a href="#about">About</a>
-            <a href="#contact">Contact</a>
-          </div>
-        </div>
-      </nav>
+      <SiteNav />
 
 
       {/* HERO */}
@@ -599,38 +592,7 @@ function App() {
       </section>
 
 
-      {/* FOOTER */}
-      <footer className="footer">
-
-        <div className="footer-logo">
-          OFFTRACQ
-        </div>
-
-        <div className="footer-links">
-
-          <a
-            href="https://www.youtube.com/@Offtracq"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            YouTube
-          </a>
-
-          <a
-            href="https://www.instagram.com/offtracq/"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Instagram
-          </a>
-
-        </div>
-
-        <p>
-          © 2026 OFFTRACQ. ALL RIGHTS RESERVED.
-        </p>
-
-      </footer>
+      <SiteFooter />
 
     </div>
   );
