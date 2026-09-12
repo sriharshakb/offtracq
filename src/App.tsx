@@ -4,9 +4,8 @@ import { motion, useScroll, useTransform } from "framer-motion";
 import { Compass, Film, Mountain } from "lucide-react";
 import type { YouTubeData, YouTubeVideo } from "./types";
 import { Thumbnail } from "./Thumbnail";
-import { Cursor } from "./Cursor";
 import { MagneticLink } from "./Magnetic";
-import { JourneyMap } from "./JourneyMap";
+import { WorldMap } from "./WorldMap";
 
 const WEB3FORMS_ACCESS_KEY = import.meta.env.VITE_WEB3FORMS_ACCESS_KEY;
 const WEB3FORMS_ENDPOINT = "https://api.web3forms.com/submit";
@@ -223,8 +222,6 @@ function App() {
   return (
     <div className="site">
 
-      <Cursor />
-
       {/* NAVIGATION */}
       <nav className="navbar">
         <motion.div className="nav-progress" style={{ scaleX: scrollYProgress }} />
@@ -291,7 +288,7 @@ function App() {
 
 
       {/* JOURNEY MAP */}
-      <JourneyMap videos={videos} loading={loading} />
+      <WorldMap />
 
 
       {/* PILLARS */}

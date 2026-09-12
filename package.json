@@ -16,6 +16,7 @@
     "lucide-react": "latest",
     "react": "latest",
     "react-dom": "latest",
+    "react-simple-maps": "^5.0.5",
     "typescript": "latest",
     "vite": "latest"
   },
