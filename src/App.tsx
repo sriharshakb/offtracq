@@ -536,6 +536,21 @@ function App() {
             alt="Offtracq"
             loading="lazy"
           />
+          <img
+            src="/images/about-2.jpg"
+            alt="Standing beside a waterfall deep in a desert canyon"
+            loading="lazy"
+          />
+          <img
+            src="/images/about-3.jpg"
+            alt="Overlooking dramatic badlands from a rock outcrop"
+            loading="lazy"
+          />
+          <img
+            src="/images/about-4.jpg"
+            alt="Riding a snowmobile through a snow-covered forest"
+            loading="lazy"
+          />
         </Reveal>
 
         <Reveal className="about-content">

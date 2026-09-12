@@ -27,3 +27,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Raw, uncompressed photo uploads (originals archived locally, not needed for the site)
+assets/originals
