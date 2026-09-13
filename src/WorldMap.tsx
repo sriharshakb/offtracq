@@ -80,9 +80,6 @@ type LoadedGeo = {
 
 export function WorldMap() {
   const [geo, setGeo] = useState<LoadedGeo | null>(null);
-  const [paused, setPaused] = useState(
-    () => window.matchMedia("(prefers-reduced-motion: reduce)").matches
-  );
 
   const svgWrapRef = useRef<HTMLDivElement>(null);
   const landRef = useRef<SVGPathElement>(null);
@@ -103,11 +100,7 @@ export function WorldMap() {
   const hoveredIdRef = useRef<string | null>(null);
   const lastPointRef = useRef({ x: 0, y: 0 });
   const idleSinceRef = useRef(0);
-  const pausedRef = useRef(paused);
-
-  useEffect(() => {
-    pausedRef.current = paused;
-  }, [paused]);
+  const pausedRef = useRef(window.matchMedia("(prefers-reduced-motion: reduce)").matches);
 
   // Built once, from local variables only (never reading another ref's
   // `.current`) — reading a ref during the render of another ref's
@@ -326,18 +319,23 @@ export function WorldMap() {
         </p>
       </div>
 
-      <div
-        ref={svgWrapRef}
-        className="world-globe"
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={endDrag}
-        onPointerLeave={endDrag}
-        onPointerCancel={endDrag}
-      >
-        <div className="world-globe-glow" />
+      <div className="world-globe">
+        {/* Drag capture is clipped to this circle (matching the visible
+            sphere), not the full square — so touch-action can be fully
+            disabled here for free 2-axis rotation without blocking page
+            scroll over the square's empty corners. */}
+        <div
+          ref={svgWrapRef}
+          className="world-globe-surface"
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={endDrag}
+          onPointerLeave={endDrag}
+          onPointerCancel={endDrag}
+        >
+          <div className="world-globe-glow" />
 
-        <svg viewBox={`0 0 ${SIZE} ${SIZE}`}>
+          <svg viewBox={`0 0 ${SIZE} ${SIZE}`}>
           <path ref={landRef} className="world-country" />
           <path ref={graticuleRef} className="world-graticule" />
 
@@ -382,16 +380,8 @@ export function WorldMap() {
             <text ref={tagNameRef} textAnchor="middle" y={-16} className="world-marker-tag-name" />
             <text ref={tagRoleRef} textAnchor="middle" y={-3} className="world-marker-tag-role" />
           </g>
-        </svg>
-
-        <button
-          type="button"
-          className="world-globe-toggle"
-          onClick={() => setPaused((current) => !current)}
-          aria-pressed={!paused}
-        >
-          {paused ? "PLAY" : "PAUSE"}
-        </button>
+          </svg>
+        </div>
       </div>
     </section>
   );

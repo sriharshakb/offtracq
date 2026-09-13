@@ -1354,35 +1354,21 @@ a:hover .watch-link::after,
   aspect-ratio: 1 / 1;
   width: min(100%, 880px);
   margin: 0 auto;
-  /* Let vertical swipes scroll the page natively on touch devices; only
-     horizontal drags are claimed for rotation. Mouse dragging (desktop)
-     is unaffected by touch-action and keeps full 2-axis control. */
-  touch-action: pan-y;
+}
+
+.world-globe-surface {
+  position: absolute;
+  inset: 0;
+  /* Clip the drag-capture area to the visible sphere, not the full square,
+     so touch-action can be fully disabled here (free 2-axis rotation,
+     matching desktop mouse drag) without blocking page scroll over the
+     square's empty corners. */
+  clip-path: circle(50% at 50% 50%);
+  touch-action: none;
   cursor: grab;
 }
 
-.world-globe-toggle {
-  position: absolute;
-  right: 4%;
-  bottom: 4%;
-  z-index: 1;
-  padding: 10px 16px;
-  background: rgba(16, 16, 16, 0.7);
-  border: 1px solid #2a2a2a;
-  color: #f5f5f5;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 1.2px;
-  cursor: pointer;
-  transition: background 0.25s ease, border-color 0.25s ease;
-}
-
-.world-globe-toggle:hover {
-  background: rgba(16, 16, 16, 0.9);
-  border-color: #f5f5f5;
-}
-
-.world-globe:active {
+.world-globe-surface:active {
   cursor: grabbing;
 }
 
