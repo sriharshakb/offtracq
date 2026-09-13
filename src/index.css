@@ -1359,12 +1359,10 @@ a:hover .watch-link::after,
 .world-globe-surface {
   position: absolute;
   inset: 0;
-  /* Clip the drag-capture area to the visible sphere, not the full square,
-     so touch-action can be fully disabled here (free 2-axis rotation,
-     matching desktop mouse drag) without blocking page scroll over the
-     square's empty corners. */
-  clip-path: circle(50% at 50% 50%);
-  touch-action: none;
+  /* Whether a touch here blocks page scroll is decided in JS per-gesture
+     (see WorldMap.tsx) — real geometry + a movement threshold, since CSS
+     touch-action/clip-path hit-testing isn't reliable enough across mobile
+     browsers for this. Mouse dragging is unaffected either way. */
   cursor: grab;
 }
 

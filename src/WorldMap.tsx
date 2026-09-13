@@ -240,7 +240,21 @@ export function WorldMap() {
     };
   }, [geo]);
 
+  // Shared by mouse drag and the manual touch handling below — moves the
+  // globe by a pixel delta and flags the gesture as an actual drag (as
+  // opposed to a tap) once it crosses a small threshold.
+  const applyDragDelta = (dx: number, dy: number) => {
+    if (Math.abs(dx) > 2 || Math.abs(dy) > 2) draggedRef.current = true;
+    const [lambda, phi, gamma] = rotationRef.current;
+    const nextPhi = Math.max(-85, Math.min(85, phi - dy * 0.35));
+    rotationRef.current = [lambda + dx * 0.35, nextPhi, gamma];
+  };
+
+  // Mouse/pen only — touch is handled separately below via native touch
+  // listeners so we can choose, per gesture, whether to claim it for
+  // rotation or let the page scroll (see the touch effect for why).
   const handlePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (event.pointerType === "touch") return;
     draggingRef.current = true;
     draggedRef.current = false;
     flyToRef.current = null;
@@ -249,21 +263,95 @@ export function WorldMap() {
   };
 
   const handlePointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (!draggingRef.current) return;
+    if (event.pointerType === "touch" || !draggingRef.current) return;
     const dx = event.clientX - lastPointRef.current.x;
     const dy = event.clientY - lastPointRef.current.y;
-    if (Math.abs(dx) > 2 || Math.abs(dy) > 2) draggedRef.current = true;
     lastPointRef.current = { x: event.clientX, y: event.clientY };
-
-    const [lambda, phi, gamma] = rotationRef.current;
-    const nextPhi = Math.max(-85, Math.min(85, phi - dy * 0.35));
-    rotationRef.current = [lambda + dx * 0.35, nextPhi, gamma];
+    applyDragDelta(dx, dy);
   };
 
   const endDrag = () => {
     draggingRef.current = false;
     markNow(idleSinceRef);
   };
+
+  // Touch needs different handling than mouse: CSS touch-action alone can't
+  // cleanly express "block scrolling only while dragging the globe itself,
+  // never in the square's empty corners, and never for a plain tap" across
+  // mobile browsers. So instead we decide per-gesture in JS: a touch that
+  // starts outside the visible circle is left alone for native scrolling;
+  // one that starts inside is tracked, and only once it moves past a small
+  // threshold do we preventDefault (blocking scroll for that gesture) and
+  // start applying rotation — a tap that never crosses the threshold never
+  // calls preventDefault, so marker taps still produce a normal click.
+  useEffect(() => {
+    const el = svgWrapRef.current;
+    if (!el) return;
+
+    let gesture: { startX: number; startY: number; withinCircle: boolean; committed: boolean } | null =
+      null;
+
+    const isWithinCircle = (clientX: number, clientY: number) => {
+      const rect = el.getBoundingClientRect();
+      const radius = rect.width / 2;
+      const dx = clientX - (rect.left + radius);
+      const dy = clientY - (rect.top + rect.height / 2);
+      return dx * dx + dy * dy <= radius * radius;
+    };
+
+    const onTouchStart = (event: TouchEvent) => {
+      if (event.touches.length !== 1) {
+        gesture = null;
+        return;
+      }
+      const touch = event.touches[0];
+      gesture = {
+        startX: touch.clientX,
+        startY: touch.clientY,
+        withinCircle: isWithinCircle(touch.clientX, touch.clientY),
+        committed: false,
+      };
+      lastPointRef.current = { x: touch.clientX, y: touch.clientY };
+    };
+
+    const onTouchMove = (event: TouchEvent) => {
+      if (!gesture || !gesture.withinCircle) return;
+      const touch = event.touches[0];
+      if (!touch) return;
+
+      if (!gesture.committed) {
+        const traveled = Math.hypot(touch.clientX - gesture.startX, touch.clientY - gesture.startY);
+        if (traveled < 4) return;
+        gesture.committed = true;
+        draggingRef.current = true;
+        draggedRef.current = false;
+        flyToRef.current = null;
+      }
+
+      event.preventDefault();
+      const dx = touch.clientX - lastPointRef.current.x;
+      const dy = touch.clientY - lastPointRef.current.y;
+      lastPointRef.current = { x: touch.clientX, y: touch.clientY };
+      applyDragDelta(dx, dy);
+    };
+
+    const onTouchEnd = () => {
+      if (gesture?.committed) endDrag();
+      gesture = null;
+    };
+
+    el.addEventListener("touchstart", onTouchStart, { passive: true });
+    el.addEventListener("touchmove", onTouchMove, { passive: false });
+    el.addEventListener("touchend", onTouchEnd);
+    el.addEventListener("touchcancel", onTouchEnd);
+
+    return () => {
+      el.removeEventListener("touchstart", onTouchStart);
+      el.removeEventListener("touchmove", onTouchMove);
+      el.removeEventListener("touchend", onTouchEnd);
+      el.removeEventListener("touchcancel", onTouchEnd);
+    };
+  }, []);
 
   const handleMarkerEnter = (id: string) => {
     hoveredIdRef.current = id;
@@ -320,10 +408,9 @@ export function WorldMap() {
       </div>
 
       <div className="world-globe">
-        {/* Drag capture is clipped to this circle (matching the visible
-            sphere), not the full square — so touch-action can be fully
-            disabled here for free 2-axis rotation without blocking page
-            scroll over the square's empty corners. */}
+        {/* Mouse/pen dragging is wired up via these pointer handlers
+            (touch is handled separately by a native-listener effect
+            above — see the comment there for why). */}
         <div
           ref={svgWrapRef}
           className="world-globe-surface"

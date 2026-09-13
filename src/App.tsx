@@ -302,10 +302,6 @@ function App() {
       </section>
 
 
-      {/* JOURNEY MAP */}
-      <WorldMap />
-
-
       {/* PILLARS */}
       <section className="pillars-section">
         <div className="pillars-grid">
@@ -588,6 +584,10 @@ function App() {
         </Reveal>
 
       </section>
+
+
+      {/* JOURNEY MAP */}
+      <WorldMap />
 
 
       {/* CONTACT */}
