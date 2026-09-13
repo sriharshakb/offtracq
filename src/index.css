@@ -1354,7 +1354,10 @@ a:hover .watch-link::after,
   aspect-ratio: 1 / 1;
   width: min(100%, 880px);
   margin: 0 auto;
-  touch-action: none;
+  /* Let vertical swipes scroll the page natively on touch devices; only
+     horizontal drags are claimed for rotation. Mouse dragging (desktop)
+     is unaffected by touch-action and keeps full 2-axis control. */
+  touch-action: pan-y;
   cursor: grab;
 }
 

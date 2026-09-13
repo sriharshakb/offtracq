@@ -333,6 +333,7 @@ export function WorldMap() {
         onPointerMove={handlePointerMove}
         onPointerUp={endDrag}
         onPointerLeave={endDrag}
+        onPointerCancel={endDrag}
       >
         <div className="world-globe-glow" />
 
